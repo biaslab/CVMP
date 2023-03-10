@@ -21,8 +21,6 @@ function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinear
     # returns the same distribution by default
     _, in_marginal_friendly = ReactiveMP.logpdf_sample_friendly(in_marginal)
 
-    samples = ReactiveMP.cvilinearize(rand(rng, in_marginal_friendly, approximation.n_gradpoints))
-
     hasupdated = false
 
     for _ in 1:(approximation.n_iterations)
@@ -30,6 +28,8 @@ function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinear
         # the multiplication between two logpdfs is correct
         # we take the derivative with respect to `η`
         # `logpdf(outbound, sample)` does not depend on `η` and is just a simple scalar constant
+        samples = ReactiveMP.cvilinearize(rand(rng, in_marginal_friendly, approximation.n_gradpoints))
+        
         logq = let samples = samples, inbound = inbound, T = T
             (η) -> mean((sample) -> -logpdf(inbound, sample) * logpdf(ReactiveMP.as_naturalparams(T, η), nonlinearity(sample)), samples)
         end
