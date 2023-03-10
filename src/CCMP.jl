@@ -1,8 +1,11 @@
 module CCMP
 
 using ReactiveMP
+using Random
+using Distributions
+import Base: prod
 
-function prod(approximation::CVI, inbound, outbound, inbound_marginal, nonlinearity)
+function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinearity)
     rng = something(approximation.rng, Random.default_rng())
 
     # Natural parameters of outbound distribution message
@@ -16,9 +19,9 @@ function prod(approximation::CVI, inbound, outbound, inbound_marginal, nonlinear
 
     # Some distributions implement "sampling" efficient versions
     # returns the same distribution by default
-    _, inbound_marginal_friendly = logpdf_sample_friendly(inbound_marginal)
+    _, in_marginal_friendly = ReactiveMP.logpdf_sample_friendly(in_marginal)
 
-    samples = cvilinearize(rand(rng, inbound_marginal_friendly, approximation.n_gradpoints))
+    samples = ReactiveMP.cvilinearize(rand(rng, in_marginal_friendly, approximation.n_gradpoints))
 
     hasupdated = false
 
@@ -28,13 +31,13 @@ function prod(approximation::CVI, inbound, outbound, inbound_marginal, nonlinear
         # we take the derivative with respect to `η`
         # `logpdf(outbound, sample)` does not depend on `η` and is just a simple scalar constant
         logq = let samples = samples, inbound = inbound, T = T
-            (η) -> mean((sample) -> pdf(inbound, sample) * logpdf(ReactiveMP.as_naturalparams(T, η), nonlinearity(sample)), samples)
+            (η) -> mean((sample) -> -logpdf(inbound, sample) * logpdf(ReactiveMP.as_naturalparams(T, η), nonlinearity(sample)), samples)
         end
 
-        ∇logq = compute_gradient(approximation.grad, logq, vec(λ_current))
+        ∇logq = ReactiveMP.compute_gradient(approximation.grad, logq, vec(λ_current))
 
         # compute Fisher matrix 
-        Fisher = compute_fisher_matrix(approximation, T, vec(λ_current))
+        Fisher = ReactiveMP.compute_fisher_matrix(approximation, T, vec(λ_current))
 
         # compute natural gradient
         ∇f = Fisher \ ∇logq
@@ -43,10 +46,10 @@ function prod(approximation::CVI, inbound, outbound, inbound_marginal, nonlinear
         ∇ = λ_current - η_outbound - as_naturalparams(T, ∇f)
 
         # perform gradient descent step
-        λ_new = as_naturalparams(T, cvi_update!(approximation.opt, λ_current, ∇))
+        λ_new = as_naturalparams(T, ReactiveMP.cvi_update!(approximation.opt, λ_current, ∇))
 
         # check whether updated natural parameters are proper
-        if isproper(λ_new) && enforce_proper_message(approximation.enforce_proper_messages, λ_new, η_outbound)
+        if isproper(λ_new) && ReactiveMP.enforce_proper_message(approximation.enforce_proper_messages, λ_new, η_outbound)
             λ_current = λ_new
             hasupdated = true
         end
@@ -59,4 +62,4 @@ function prod(approximation::CVI, inbound, outbound, inbound_marginal, nonlinear
     return convert(Distribution, λ_current)
 end
 
-end # module CIExpirements
+end
