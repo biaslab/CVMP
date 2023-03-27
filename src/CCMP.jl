@@ -5,6 +5,7 @@ using Random
 using Distributions
 import Base: prod
 
+include("redifinitions.jl")
 
 function Random.rand(rng::AbstractRNG, factorizedjoint::ReactiveMP.FactorizedJoint)
     tuple([rand(rng, dist) for dist in ReactiveMP.getmultipliers(factorizedjoint)]...)
@@ -36,11 +37,20 @@ function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinear
     # Initial parameters of projected distribution
     λ_current = naturalparams(outbound)
 
+    if !isproper(λ_current)
+        return convert(Distribution, λ_current)
+    end
+
     # Some distributions implement "sampling" efficient versions
     # returns the same distribution by default
     _, in_marginal_friendly = ReactiveMP.logpdf_sample_friendly(in_marginal)
 
     hasupdated = false
+
+    # @info "check revise"
+    # error(1)
+
+    
 
     for _ in 1:(approximation.n_iterations)
         # compute gradient of log-likelihood
