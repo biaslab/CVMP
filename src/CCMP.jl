@@ -20,6 +20,9 @@ function Random.rand(factorizedjoint::ReactiveMP.FactorizedJoint, size::Int64)
     rand(Random.GLOBAL_RNG, factorizedjoint, size)
 end
 
+function Distributions.pdf(messages::Tuple, x::Tuple)
+    prod(map((message_point) -> pdf(message_point[1], message_point[2]), zip(messages, x)))
+end
 
 function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinearity)
     rng = something(approximation.rng, Random.default_rng())
@@ -47,7 +50,7 @@ function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinear
         samples = ReactiveMP.cvilinearize(rand(rng, in_marginal_friendly, approximation.n_gradpoints))
 
         logq = let samples = samples, inbound = inbound, T = T
-            (η) -> mean((sample) -> pdf(inbound, sample) * logpdf(ReactiveMP.as_naturalparams(T, η), nonlinearity(sample)), samples)
+            (η) -> mean((sample) -> pdf(inbound, sample) * logpdf(ReactiveMP.as_naturalparams(T, η), nonlinearity(sample...)), samples)
         end
 
         ∇logq = ReactiveMP.compute_gradient(approximation.grad, logq, vec(λ_current))
