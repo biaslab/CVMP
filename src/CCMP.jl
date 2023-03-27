@@ -5,6 +5,22 @@ using Random
 using Distributions
 import Base: prod
 
+
+function Random.rand(rng::AbstractRNG, factorizedjoint::ReactiveMP.FactorizedJoint)
+    tuple([rand(rng, dist) for dist in ReactiveMP.getmultipliers(factorizedjoint)]...)
+end
+
+function Random.rand(rng::AbstractRNG, factorizedjoint::ReactiveMP.FactorizedJoint, size::Int64)
+    [
+        rand(rng, factorizedjoint) for _ in 1:size
+    ]
+end
+
+function Random.rand(factorizedjoint::ReactiveMP.FactorizedJoint, size::Int64)
+    rand(Random.GLOBAL_RNG, factorizedjoint, size)
+end
+
+
 function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinearity)
     rng = something(approximation.rng, Random.default_rng())
 
