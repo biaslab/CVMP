@@ -25,6 +25,16 @@ function Distributions.pdf(messages::Tuple, x::Tuple)
     prod(map((message_point) -> pdf(message_point[1], message_point[2]), zip(messages, x)))
 end
 
+function ccmp_init(inbound, outbound::GaussianDistributionsFamily, nonlinearity)
+    s = mean(inbound)
+    return NormalMeanPrecision(nonlinearity(s), 1-1/var(outbound))
+end
+
+function ccmp_init(inbound::Tuple, outbound::GaussianDistributionsFamily, nonlinearity)
+    s = tuple(map(mean, inbound)...)
+    return NormalMeanPrecision(nonlinearity(s...), 1-1/var(outbound))
+end
+
 function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinearity)
     rng = something(approximation.rng, Random.default_rng())
 
@@ -35,7 +45,8 @@ function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinear
     T = typeof(η_outbound)
 
     # Initial parameters of projected distribution
-    λ_current = naturalparams(outbound)
+    init_dist = ccmp_init(inbound, outbound, nonlinearity)
+    λ_current = naturalparams(init_dist)
 
     if !isproper(λ_current)
         return convert(Distribution, λ_current)
