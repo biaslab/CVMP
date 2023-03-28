@@ -13,7 +13,7 @@
 5. **A potential solution?**
    Utilize the backward message (Semih).
 
-6. Generalize this solution for normals on Exponetial family
+6. **Generalize this solution for normals on Exponetial family**
    Natural gradient ascent of the ELBO
 
 7. **Forward message?**
