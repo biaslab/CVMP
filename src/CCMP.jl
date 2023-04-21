@@ -35,6 +35,16 @@ function ccmp_init(inbound::Tuple, outbound::GaussianDistributionsFamily, nonlin
     return NormalMeanPrecision(nonlinearity(s...), 1-1/var(outbound))
 end
 
+function total_derivative(approximation, f, s::Real)
+    return ReactiveMP.compute_derivative(approximation.grad, f, s)
+end
+
+function total_derivative(approximation, f, s::Tuple)
+    f_for_grad = (x) -> f(x...)
+    gradient_at_s = ReactiveMP.compute_gradient(approximation.grad, f_for_grad, collect(s))
+    return dot(collect(s), gradient_at_s)
+end
+
 function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinearity)
     rng = something(approximation.rng, Random.default_rng())
 
@@ -58,10 +68,9 @@ function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinear
 
     hasupdated = false
 
-    # @info "check revise"
+    # @info "total derivative included"
+    # @info "total derivative excluded"
     # error(1)
-
-    
 
     for _ in 1:(approximation.n_iterations)
         # compute gradient of log-likelihood
@@ -71,7 +80,8 @@ function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinear
         samples = ReactiveMP.cvilinearize(rand(rng, in_marginal_friendly, approximation.n_gradpoints))
 
         logq = let samples = samples, inbound = inbound, T = T
-            (η) -> mean((sample) -> pdf(inbound, sample) * logpdf(ReactiveMP.as_naturalparams(T, η), nonlinearity(sample...)), samples)
+            (η) -> mean((sample) -> total_derivative(approximation, nonlinearity, sample) * pdf(inbound, sample) * logpdf(ReactiveMP.as_naturalparams(T, η), nonlinearity(sample...)), samples)
+            # (η) -> mean((sample) -> pdf(inbound, sample) * logpdf(ReactiveMP.as_naturalparams(T, η), nonlinearity(sample...)), samples)
         end
 
         ∇logq = ReactiveMP.compute_gradient(approximation.grad, logq, vec(λ_current))
