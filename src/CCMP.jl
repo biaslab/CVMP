@@ -25,6 +25,10 @@ function Distributions.pdf(messages::Tuple, x::Tuple)
     prod(map((message_point) -> pdf(message_point[1], message_point[2]), zip(messages, x)))
 end
 
+function ccmp_init(_, _, outbound, _)
+    return outbound
+end
+
 function ccmp_init(approximation, inbound, outbound::GaussianDistributionsFamily, nonlinearity)
     samples = rand(approximation.rng, inbound, 100)
     f_samples = map(nonlinearity, samples)
