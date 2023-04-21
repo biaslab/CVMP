@@ -3,6 +3,7 @@ module CCMP
 using ReactiveMP
 using Random
 using Distributions
+using TupleTools
 import Base: prod
 
 
@@ -24,6 +25,24 @@ function Distributions.pdf(messages::Tuple, x::Tuple)
     prod(map((message_point) -> pdf(message_point[1], message_point[2]), zip(messages, x)))
 end
 
+function total_derivative(approximation, f, s::Real)
+    return ReactiveMP.compute_derivative(approximation.grad, f, s)
+end
+
+function total_derivative(approximation, f, s::Tuple)
+    function create_1d_function(i)
+        function oned_function(x)
+            new_tuple = TupleTools.insertat(s, i, (x,))
+            return f(new_tuple...)
+        end
+    end
+    functions = map(create_1d_function, 1:length(s))
+    derivatives = map((i) -> ReactiveMP.compute_derivative(approximation.grad, functions[i], s[i]), 1:length(s))
+    return sum(derivatives)
+end
+
+compute_gradient(::ForwardDiffGrad, f::F, vec::AbstractVector) where {F} = ForwardDiff.gradient(f, vec)
+
 function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinearity)
     rng = something(approximation.rng, Random.default_rng())
 
@@ -42,6 +61,8 @@ function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinear
 
     hasupdated = false
 
+    # @info "total derivative with pdf"
+
     for _ in 1:(approximation.n_iterations)
         # compute gradient of log-likelihood
         # the multiplication between two logpdfs is correct
@@ -49,8 +70,10 @@ function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinear
         # `logpdf(outbound, sample)` does not depend on `η` and is just a simple scalar constant
         samples = ReactiveMP.cvilinearize(rand(rng, in_marginal_friendly, approximation.n_gradpoints))
 
+        total_derivative = (sample) -> map(ReactiveMP.compute_derivative(approximation.grad, nonlinearity, sample), sample)
+        
         logq = let samples = samples, inbound = inbound, T = T
-            (η) -> mean((sample) -> pdf(inbound, sample) * logpdf(ReactiveMP.as_naturalparams(T, η), nonlinearity(sample...)), samples)
+            (η) -> mean((sample) -> total_derivative(sample) * pdf(inbound, sample) * logpdf(ReactiveMP.as_naturalparams(T, η), nonlinearity(sample...)), samples)
         end
 
         ∇logq = ReactiveMP.compute_gradient(approximation.grad, logq, vec(λ_current))
