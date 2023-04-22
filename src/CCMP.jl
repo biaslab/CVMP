@@ -5,6 +5,8 @@ using Random
 using Distributions
 using SpecialFunctions
 import Base: prod
+using StableRNGs
+using Flux
 
 include("redifinitions.jl")
 include("extra_rules.jl")
@@ -118,6 +120,10 @@ function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinear
     end
 
     return convert(Distribution, λ_current)
+end
+
+function proj(approximation, dist, exp_dist)
+    return exp_dist
 end
 
 end
