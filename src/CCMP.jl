@@ -29,6 +29,10 @@ function Distributions.pdf(messages::Tuple, x::Tuple)
     prod(map((message_point) -> pdf(message_point[1], message_point[2]), zip(messages, x)))
 end
 
+function ccmp_init(_, inbound::GammaDistributionsFamily, outbound::GammaDistributionsFamily, ::typeof(identity))
+    return prod(ReactiveMP.ProdAnalytical(), inbound, outbound)
+end
+
 function ccmp_init(_, _, outbound, _)
     return outbound
 end
@@ -122,8 +126,13 @@ function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinear
     return convert(Distribution, λ_current)
 end
 
-function proj(approximation, dist, exp_dist)
-    return exp_dist
+function proj(_, dist::GammaDistributionsFamily, exp_dist::GammaDistributionsFamily)
+    return dist
+end
+
+function proj(approximation::CVI, dist::ContinuousUnivariateLogPdf, exp_dist)
+    projected_params = ReactiveMP.naturalparams(ReactiveMP.prod(approximation, dist, exp_dist)) - naturalparams(exp_dist)
+    return convert(Distribution, projected_params)
 end
 
 end

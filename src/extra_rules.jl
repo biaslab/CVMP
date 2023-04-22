@@ -13,6 +13,10 @@ end
     return GammaShapeRate(mean(q_α)+1, mean(q_out))
 end
 
+@rule GammaShapeRate(:β, Marginalisation) (q_out::GammaShapeRate, q_α::GammaShapeRate, ) = begin 
+    return GammaShapeRate(mean(q_α)+1, mean(q_out))
+end
+
 @rule GammaShapeRate(:β, Marginalisation) (q_out::GammaShapeRate, q_α::PointMass, ) = begin 
     return GammaShapeRate(mean(q_α)+1, mean(q_out))
 end
