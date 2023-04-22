@@ -3,6 +3,7 @@ module CCMP
 using ReactiveMP
 using Random
 using Distributions
+using SpecialFunctions
 import Base: prod
 
 include("redifinitions.jl")
