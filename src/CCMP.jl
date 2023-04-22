@@ -101,7 +101,7 @@ function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinear
         ∇logq = ReactiveMP.compute_gradient(approximation.grad, logq, vec(λ_current))
 
         # compute Fisher matrix 
-        Fisher = ReactiveMP.compute_fisher_matrix(approximation, T, vec(λ_current))
+        Fisher = ReactiveMP.compute_fisher_matrix(approximation, T, vec(λ_current)) + 1e-6*diageye(length(∇logq))
 
         # compute natural gradient
         ∇f = Fisher \ ∇logq
