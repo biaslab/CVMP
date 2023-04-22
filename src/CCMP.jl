@@ -6,6 +6,7 @@ using Distributions
 import Base: prod
 
 include("redifinitions.jl")
+include("extra_rules.jl")
 
 function Random.rand(rng::AbstractRNG, factorizedjoint::ReactiveMP.FactorizedJoint)
     tuple([rand(rng, dist) for dist in ReactiveMP.getmultipliers(factorizedjoint)]...)
