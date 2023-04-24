@@ -1,0 +1,4 @@
+name = "graphs"
+uuid = "b3f9477f-5966-4c90-af78-b58b342e8110"
+authors = ["Mykola Lukashchuk <nikola.lukashuk@gmail.com> <nikola.lukashuk@gmail.com>"]
+version = "0.1.0"
