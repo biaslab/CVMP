@@ -12,13 +12,12 @@ include("redifinitions.jl")
 include("extra_rules.jl")
 
 function Random.rand(rng::AbstractRNG, factorizedjoint::ReactiveMP.FactorizedJoint)
-    tuple([rand(rng, dist) for dist in ReactiveMP.getmultipliers(factorizedjoint)]...)
+    return map((dist) -> rand(rng, dist), ReactiveMP.getmultipliers(factorizedjoint))
+    # tuple(rand(rng, dist) for dist in ReactiveMP.getmultipliers(factorizedjoint)...)
 end
 
 function Random.rand(rng::AbstractRNG, factorizedjoint::ReactiveMP.FactorizedJoint, size::Int64)
-    [
-        rand(rng, factorizedjoint) for _ in 1:size
-    ]
+    return ( rand(rng, factorizedjoint) for _ in 1:size )
 end
 
 function Random.rand(factorizedjoint::ReactiveMP.FactorizedJoint, size::Int64)
@@ -33,8 +32,10 @@ function ccmp_init(_, inbound::GammaDistributionsFamily, outbound::GammaDistribu
     return prod(ReactiveMP.ProdAnalytical(), inbound, outbound)
 end
 
-function ccmp_init(_, _, outbound, _)
-    return outbound
+function ccmp_init(_, inbound, outbound, _)
+    # bvdmitri: this matters a lot, just sending outbound is unstable and leads to NaNs, double check
+    # return outbound
+    return prod(ReactiveMP.ProdAnalytical(), inbound, outbound)
 end
 
 function ccmp_init(approximation, inbound, outbound::GaussianDistributionsFamily, nonlinearity)
@@ -46,10 +47,12 @@ end
 
 function ccmp_init(_, inbound::Tuple, outbound::GaussianDistributionsFamily, nonlinearity)
     s = tuple(map(mean, inbound)...)
-    return NormalMeanPrecision(nonlinearity(s...), 1-1/var(outbound))
+    return NormalMeanPrecision(nonlinearity(s...), 1 - 1 / var(outbound))
 end
 
 function total_derivative(approximation, f, s::Real)
+    # bvdmitri: Why not multiple on `s` here?
+    # error(1)
     return ReactiveMP.compute_derivative(approximation.grad, f, s)
 end
 
@@ -59,7 +62,12 @@ function total_derivative(approximation, f, s::Tuple)
     return dot(collect(s), gradient_at_s)
 end
 
+benchmark_timings = Ref(0.0)
+
 function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinearity)
+
+    benchmark_timings_start = time_ns()
+
     rng = something(approximation.rng, Random.default_rng())
 
     # Natural parameters of outbound distribution message
@@ -73,6 +81,7 @@ function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinear
     λ_current = naturalparams(init_dist)
 
     if !isproper(λ_current)
+        error("Hello from initial distribution")
         return convert(Distribution, λ_current)
     end
 
@@ -86,22 +95,22 @@ function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinear
     # @info "total derivative excluded"
     # error(1)
 
+    samples = ReactiveMP.cvilinearize(rand(rng, in_marginal_friendly, approximation.n_gradpoints))
+
+    # compute gradient of log-likelihood
+    # the multiplication between two logpdfs is correct
+    # we take the derivative with respect to `η`
+    # `logpdf(outbound, sample)` does not depend on `η` and is just a simple scalar constant
+    logq = let samples = samples, inbound = inbound, T = T
+        (η) -> mean((sample) -> total_derivative(approximation, nonlinearity, sample) * pdf(inbound, sample) * logpdf(ReactiveMP.as_naturalparams(T, η), nonlinearity(sample...)), samples)
+        # (η) -> mean((sample) -> pdf(inbound, sample) * logpdf(ReactiveMP.as_naturalparams(T, η), nonlinearity(sample...)), samples)
+    end
+
     for _ in 1:(approximation.n_iterations)
-        # compute gradient of log-likelihood
-        # the multiplication between two logpdfs is correct
-        # we take the derivative with respect to `η`
-        # `logpdf(outbound, sample)` does not depend on `η` and is just a simple scalar constant
-        samples = ReactiveMP.cvilinearize(rand(rng, in_marginal_friendly, approximation.n_gradpoints))
-
-        logq = let samples = samples, inbound = inbound, T = T
-            (η) -> mean((sample) -> total_derivative(approximation, nonlinearity, sample) * pdf(inbound, sample) * logpdf(ReactiveMP.as_naturalparams(T, η), nonlinearity(sample...)), samples)
-            # (η) -> mean((sample) -> pdf(inbound, sample) * logpdf(ReactiveMP.as_naturalparams(T, η), nonlinearity(sample...)), samples)
-        end
-
         ∇logq = ReactiveMP.compute_gradient(approximation.grad, logq, vec(λ_current))
 
         # compute Fisher matrix 
-        Fisher = ReactiveMP.compute_fisher_matrix(approximation, T, vec(λ_current)) + 1e-6*diageye(length(∇logq))
+        Fisher = ReactiveMP.compute_fisher_matrix(approximation, T, vec(λ_current)) # + 1e-6 * diageye(length(∇logq))
 
         # compute natural gradient
         ∇f = Fisher \ ∇logq
@@ -119,9 +128,17 @@ function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinear
         end
     end
 
+    # if !hasupdated
+    # error("Hello from not updated")
+    # end
+
     if !hasupdated && approximation.warn
         @warn "CVI approximation has not updated the initial state. The method did not converge. Set `warn = false` to supress this warning."
     end
+
+    benchmark_timings_end = time_ns()
+
+    benchmark_timings[] = benchmark_timings[] + (benchmark_timings_end - benchmark_timings_start)
 
     return convert(Distribution, λ_current)
 end
@@ -130,9 +147,16 @@ function proj(_, dist::GammaDistributionsFamily, exp_dist::GammaDistributionsFam
     return dist
 end
 
-function proj(approximation::CVI, dist::ContinuousUnivariateLogPdf, exp_dist)
-    projected_params = ReactiveMP.naturalparams(ReactiveMP.prod(approximation, dist, exp_dist)) - naturalparams(exp_dist)
-    return convert(Distribution, projected_params)
+function proj(approximation::CVI, ::Type{T}, dist::ContinuousUnivariateLogPdf) where {T}
+    # projected_params = ReactiveMP.naturalparams(ReactiveMP.prod(approximation, dist, exp_dist)) - naturalparams(exp_dist)
+    # return convert(Distribution, projected_params)
+    C = ReactiveMP.approximate(GaussLaguerreQuadrature(21), (x) -> pdf(dist, x))
+    mean = ReactiveMP.approximate(GaussLaguerreQuadrature(21), (x) -> x * pdf(dist, x) / C)
+    logmean = ReactiveMP.approximate(GaussLaguerreQuadrature(21), (x) -> log(abs(x)) * pdf(dist, x) / C)
+    # @show mean, logmean
+    # error(1)
+    stats = Distributions.GammaStats(mean, logmean, 1)
+    return convert(GammaShapeRate, Distributions.fit_mle(Gamma, stats, tol=1e-4, maxiter=10, alpha0 = 10.0))
 end
 
 end
