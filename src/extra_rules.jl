@@ -28,3 +28,7 @@ end
 @rule GammaShapeRate(:out, Marginalisation) (q_α::Any, q_β::Any, ) = begin 
     return GammaShapeRate(mean(q_α), mean(q_β))
 end
+
+@rule GammaShapeRate(:β, Marginalisation) (q_out::Gamma, q_α::GammaShapeRate, ) = begin 
+    return GammaShapeRate(mean(q_α)+1, mean(q_out))
+end
