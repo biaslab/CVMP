@@ -106,14 +106,19 @@ function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinear
         # (η) -> mean((sample) -> pdf(inbound, sample) * logpdf(ReactiveMP.as_naturalparams(T, η), nonlinearity(sample...)), samples)
     end
 
+    # @info "Loop!"
+
     for _ in 1:(approximation.n_iterations)
         ∇logq = ReactiveMP.compute_gradient(approximation.grad, logq, vec(λ_current))
+        @info "∇logq: $(∇logq)"
 
         # compute Fisher matrix 
         Fisher = ReactiveMP.compute_fisher_matrix(approximation, T, vec(λ_current)) # + 1e-6 * diageye(length(∇logq))
+        @info "Fisher: $(Fisher)"
 
         # compute natural gradient
         ∇f = Fisher \ ∇logq
+        @info "∇f: $(∇f)"
 
         # compute gradient on natural parameters
         ∇ = λ_current - η_outbound - as_naturalparams(T, ∇f)
@@ -127,6 +132,8 @@ function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinear
             hasupdated = true
         end
     end
+
+    error("Hello to check values")
 
     # if !hasupdated
     # error("Hello from not updated")
