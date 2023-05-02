@@ -23,6 +23,23 @@ function Random.rand(rng::AbstractRNG, dist::GammaShapeRate, n::Int64)
     return convert(AbstractArray{eltype(dist)}, rand(rng, convert(GammaShapeScale, dist), n))
 end
 
+function Distributions.logpdf(exp_dist::ExponentialFamily.KnownExponentialFamilyDistribution{GammaShapeRate}, x)
+    η = ExponentialFamily.getnaturalparameters(exponentialfamily_current)
+    η1 = first(η)
+    η2 = getindex(η, 2)
+    return log(x) * η1 + x * η2 - ExponentialFamily.logpartition(exp_dist)
+end
+
+function natural_gradient_step(approximation::CVI, exp_dist::ExponentialFamily.KnownExponentialFamilyDistribution{ExponentialFamily.GammaShapeRate}, logq)
+    ∇logq = ReactiveMP.compute_gradient(approximation.grad, logq, ExponentialFamily.getnaturalparameters(exp_dist))
+    # compute Fisher matrix 
+    Fisher = compute_fisher_matrix(approximation, ExponentialFamily.GammaShapeRate, ExponentialFamily.getnaturalparameters(exp_dist))
+    # compute natural gradient
+    ∇f = Fisher \ ∇logq
+    return (∇f, Fisher, ∇logq)
+end
+
+
 function Base.prod(approximation::CVI, inbound, outbound::GammaDistributionsFamily, in_marginal, nonlinearity)
     benchmark_timings_start = time_ns()
 
@@ -58,25 +75,26 @@ function Base.prod(approximation::CVI, inbound, outbound::GammaDistributionsFami
     logq = let samples = samples, inbound = inbound
         (η) -> mean(
             (sample) ->
-                total_derivative(approximation, nonlinearity, sample) *
-                pdf(inbound, sample) *
-                logpdf(ExponentialFamily.KnownExponentialFamilyDistribution(ExponentialFamily.GammaShapeRate, η, nothing), nonlinearity(sample...)),
+                total_derivative(approximation, nonlinearity, sample + 1e-6) *
+                pdf(inbound, sample + 1e-6) *
+                logpdf(ExponentialFamily.KnownExponentialFamilyDistribution(ExponentialFamily.GammaShapeRate, η .+ 1e-6, nothing), nonlinearity(sample...)),
             samples
         )
         # (η) -> mean((sample) -> pdf(inbound, sample) * logpdf(ReactiveMP.as_naturalparams(T, η), nonlinearity(sample...)), samples)
     end
 
     for _ in 1:(approximation.n_iterations)
-        ∇logq = ReactiveMP.compute_gradient(approximation.grad, logq, ExponentialFamily.getnaturalparameters(exponentialfamily_current))
-        @info ∇logq 
-        
-        # compute Fisher matrix 
-        Fisher = compute_fisher_matrix(approximation, ExponentialFamily.GammaShapeRate, ExponentialFamily.getnaturalparameters(exponentialfamily_current)) # + 1e-6 * diageye(length(∇logq))
-        @info Fisher
+        # ∇logq = ReactiveMP.compute_gradient(approximation.grad, logq, ExponentialFamily.getnaturalparameters(exponentialfamily_current))
+         
+        # # compute Fisher matrix 
+        # Fisher = compute_fisher_matrix(approximation, ExponentialFamily.GammaShapeRate, ExponentialFamily.getnaturalparameters(exponentialfamily_current))
+        # # compute natural gradient
+        # ∇f = Fisher \ ∇logq
+        ∇f, _, _ = natural_gradient_step(approximation, exponentialfamily_current, logq)
 
-        # compute natural gradient
-        ∇f = Fisher \ ∇logq
-        @info ∇f 
+        check_λ = convert(ExponentialFamily.KnownExponentialFamilyDistribution, convert(Distribution, init_dist))
+        
+        @info ("inner loop", inbound, ExponentialFamily.getnaturalparameters(check_λ), samples, ∇f)
 
         # compute gradient on natural parameters
         ∇ = ExponentialFamily.getnaturalparameters(exponentialfamily_current) - ExponentialFamily.getnaturalparameters(exponentialfamily_outbound) - ∇f
