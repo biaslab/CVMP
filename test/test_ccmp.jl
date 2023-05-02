@@ -32,14 +32,15 @@ using ForwardDiff
     end
 
     @testset "Gamma x Gamma" begin
-        cvi = CVI(StableRNG(42), 1, 2000, Flux.Adam(0.001), ForwardDiffGrad(), 10, Val(true), true)
+        cvi = CVI(StableRNG(42), 1, 100, Flux.Adam(0.001), ForwardDiffGrad(), 100, Val(true), true)
 
         inbound = Gamma(1, 2)
         outbound = Gamma(1, 2)
-        n_analytical = convert(GammaShapeRate, prod(ProdAnalytical(), inbound, outbound))
+        n_analytical = convert(ReactiveMP.GammaShapeRate, prod(ProdAnalytical(), inbound, outbound))
         q_y = prod(cvi, inbound, outbound, prod(ProdAnalytical(), inbound, outbound), (x) -> x)
+        @info n_analytical
         @info prod(cvi, inbound, outbound, prod(ProdAnalytical(), inbound, outbound), (x) -> x)
-        @test prod(cvi, inbound, outbound, prod(ProdAnalytical(), inbound, outbound), (x) -> x) ≈ n_analytical atol = 4e-1
+        @test prod(cvi, inbound, outbound, prod(ProdAnalytical(), inbound, outbound), (x) -> x) ≈ n_analytical atol = 0.1
     end
 end
 end

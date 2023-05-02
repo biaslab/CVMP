@@ -26,7 +26,7 @@ function prod(approximation::CVI, left, dist::GaussianDistributionsFamily)
         df_μ1 = df_m - 2 * df_v * mean(q)
         df_μ2 = df_v
 
-        for _ in 1:approximation.n_gradpoints
+        for _ in 1:(approximation.n_gradpoints)
             z_s = rand(rng, q)
             df_m, df_v = ReactiveMP.compute_df_mv(approximation, logp, z_s)
             df_μ1 = df_μ1 + (df_m - 2 * df_v * mean(q))
@@ -36,7 +36,7 @@ function prod(approximation::CVI, left, dist::GaussianDistributionsFamily)
         used_samples = approximation.n_gradpoints + 1
 
         # convert mean parameter gradient into natural gradient
-        ∇f = as_naturalparams(T, df_μ1/used_samples, df_μ2/used_samples)
+        ∇f = as_naturalparams(T, df_μ1 / used_samples, df_μ2 / used_samples)
 
         # compute gradient on natural parameters
         ∇ = λ - η - ∇f
