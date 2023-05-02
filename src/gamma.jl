@@ -68,12 +68,15 @@ function Base.prod(approximation::CVI, inbound, outbound::GammaDistributionsFami
 
     for _ in 1:(approximation.n_iterations)
         ∇logq = ReactiveMP.compute_gradient(approximation.grad, logq, ExponentialFamily.getnaturalparameters(exponentialfamily_current))
+        @info ∇logq 
         
         # compute Fisher matrix 
         Fisher = compute_fisher_matrix(approximation, ExponentialFamily.GammaShapeRate, ExponentialFamily.getnaturalparameters(exponentialfamily_current)) # + 1e-6 * diageye(length(∇logq))
+        @info Fisher
 
         # compute natural gradient
         ∇f = Fisher \ ∇logq
+        @info ∇f 
 
         # compute gradient on natural parameters
         ∇ = ExponentialFamily.getnaturalparameters(exponentialfamily_current) - ExponentialFamily.getnaturalparameters(exponentialfamily_outbound) - ∇f
