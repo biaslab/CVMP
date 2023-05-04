@@ -112,7 +112,7 @@ function Base.prod(approximation::CVI, inbound, outbound::GammaDistributionsFami
         if isproper(p_new) && ReactiveMP.enforce_proper_message(approximation.enforce_proper_messages, p_new, η_outbound)
             # @info "HERE!"
             if any(isnan.(λ_new))
-                @info "NAN!"
+                error("Hello from isnan update")
             end
             exponentialfamily_current = ExponentialFamily.KnownExponentialFamilyDistribution(ExponentialFamily.GammaShapeRate, λ_new, nothing)
             hasupdated = true
