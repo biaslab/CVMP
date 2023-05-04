@@ -8,6 +8,7 @@ import Base: prod
 using StableRNGs
 using Flux
 
+include("reverse_diff.jl")
 include("redifinitions.jl")
 include("extra_rules.jl")
 include("gamma.jl")

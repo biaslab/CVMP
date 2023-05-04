@@ -6,9 +6,13 @@ function ReactiveMP.cvi_update!(opt::Flux.Optimise.AbstractOptimiser, λ::Abstra
     return Flux.Optimise.update!(opt, λ, ∇)
 end
 
-function compute_fisher_matrix(approximation::CVI, ::Type{ExponentialFamily.GammaShapeRate}, vec::AbstractVector)
-    neg_lognormalizer = (x) -> ExponentialFamily.logpartition(ExponentialFamily.KnownExponentialFamilyDistribution(ExponentialFamily.GammaShapeRate, x, nothing))
-    return ReactiveMP.compute_hessian(approximation.grad, neg_lognormalizer, vec)
+function compute_fisher_matrix(_, ::Type{ExponentialFamily.GammaShapeRate}, vec::AbstractVector)
+    # neg_lognormalizer = (x) -> ExponentialFamily.logpartition(ExponentialFamily.KnownExponentialFamilyDistribution(ExponentialFamily.GammaShapeRate, x, nothing))
+    # return ReactiveMP.compute_hessian(approximation.grad, neg_lognormalizer, vec)
+    return [
+        digamma(vec[1] + 1) -1/vec[2];
+        -1/vec[2] (vec[1] + 1)*(-vec[2]^2)
+    ]
 end
 
 function Base.convert(::Type{ExponentialFamily.KnownExponentialFamilyDistribution}, dist::Distributions.Gamma)
@@ -72,11 +76,11 @@ function Base.prod(approximation::CVI, inbound, outbound::GammaDistributionsFami
     # the multiplication between two logpdfs is correct
     # we take the derivative with respect to `η`
     # `logpdf(outbound, sample)` does not depend on `η` and is just a simple scalar constant
-    weights = map((sample) -> total_derivative(approximation, nonlinearity, sample) * pdf(inbound, sample), samples)
-    logq = let samples = samples, weights=weights
+    # weights = map((sample) -> total_derivative(approximation, nonlinearity, sample) * pdf(inbound, sample), samples)
+    logq = let samples = samples
         (η) -> mean(
-            map((sample, weight) -> weight * logpdf(ExponentialFamily.KnownExponentialFamilyDistribution(ExponentialFamily.GammaShapeRate, η, nothing), nonlinearity(sample...)),
-            samples, weights)
+            map((sample) -> logpdf(ExponentialFamily.KnownExponentialFamilyDistribution(ExponentialFamily.GammaShapeRate, η, nothing), nonlinearity(sample...)),
+            samples)
         )
         # (η) -> mean((sample) -> pdf(inbound, sample) * logpdf(ReactiveMP.as_naturalparams(T, η), nonlinearity(sample...)), samples)
     end
@@ -92,28 +96,30 @@ function Base.prod(approximation::CVI, inbound, outbound::GammaDistributionsFami
     end
 
     for _ in 1:(approximation.n_iterations)
-        ∇logq = ReactiveMP.compute_gradient(approximation.grad, logq, ExponentialFamily.getnaturalparameters(exponentialfamily_current))
+        [0, 0]
+        # # ∇logq = ReactiveMP.compute_gradient(approximation.grad, logq, ExponentialFamily.getnaturalparameters(exponentialfamily_current))
+        # ∇logq = [0, 0]
          
-        # compute Fisher matrix 
-        Fisher = compute_fisher_matrix(approximation, ExponentialFamily.GammaShapeRate, ExponentialFamily.getnaturalparameters(exponentialfamily_current))
-        # compute natural gradient
-        ∇f = Fisher \ ∇logq
-        # @info ("inner loop", inbound, ExponentialFamily.getnaturalparameters(check_λ), samples, ∇f)
+        # # compute Fisher matrix 
+        # Fisher = compute_fisher_matrix(approximation, ExponentialFamily.GammaShapeRate, ExponentialFamily.getnaturalparameters(exponentialfamily_current))
+        # # compute natural gradient
+        # ∇f = Fisher \ ∇logq
+        # # @info ("inner loop", inbound, ExponentialFamily.getnaturalparameters(check_λ), samples, ∇f)
 
-        # compute gradient on natural parameters
-        ∇ = ExponentialFamily.getnaturalparameters(exponentialfamily_current) - ExponentialFamily.getnaturalparameters(exponentialfamily_outbound) - ∇f
-        # perform gradient descent step
-        λ_new = ReactiveMP.cvi_update!(approximation.opt, ExponentialFamily.getnaturalparameters(exponentialfamily_current), ∇)
-        p_new = ReactiveMP.GammaNaturalParameters(λ_new)
-        # check whether updated natural parameters are proper
-        if isproper(p_new) && ReactiveMP.enforce_proper_message(approximation.enforce_proper_messages, p_new, η_outbound)
-            # @info "HERE!"
-            if any(isnan.(λ_new))
-                error("Hello from isnan update")
-            end
-            exponentialfamily_current = ExponentialFamily.KnownExponentialFamilyDistribution(ExponentialFamily.GammaShapeRate, λ_new, nothing)
-            hasupdated = true
-        end
+        # # compute gradient on natural parameters
+        # ∇ = [0, 0]
+        # # perform gradient descent step
+        # λ_new = ReactiveMP.cvi_update!(approximation.opt, ExponentialFamily.getnaturalparameters(exponentialfamily_current), ∇)
+        # p_new = ReactiveMP.GammaNaturalParameters(λ_new)
+        # # check whether updated natural parameters are proper
+        # if isproper(p_new) && ReactiveMP.enforce_proper_message(approximation.enforce_proper_messages, p_new, η_outbound)
+        #     # @info "HERE!"
+        #     if any(isnan.(λ_new))
+        #         error("Hello from isnan update")
+        #     end
+        #     exponentialfamily_current = ExponentialFamily.KnownExponentialFamilyDistribution(ExponentialFamily.GammaShapeRate, λ_new, nothing)
+        #     hasupdated = true
+        # end
     end
 
     # if !hasupdated
