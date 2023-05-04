@@ -124,8 +124,16 @@ function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinear
         # perform gradient descent step
         λ_new = as_naturalparams(T, ReactiveMP.cvi_update!(approximation.opt, λ_current, ∇))
 
+        if any(isnan.(λ_new))
+            @info "NAN!"
+        end
+
         # check whether updated natural parameters are proper
         if isproper(λ_new) && ReactiveMP.enforce_proper_message(approximation.enforce_proper_messages, λ_new, η_outbound)
+            @info "HERE!"
+            if any(isnan.(λ_new))
+                @info "NAN!"
+            end
             λ_current = λ_new
             hasupdated = true
         end

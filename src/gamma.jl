@@ -72,43 +72,49 @@ function Base.prod(approximation::CVI, inbound, outbound::GammaDistributionsFami
     # the multiplication between two logpdfs is correct
     # we take the derivative with respect to `η`
     # `logpdf(outbound, sample)` does not depend on `η` and is just a simple scalar constant
+    
     logq = let samples = samples, inbound = inbound
         (η) -> mean(
             (sample) ->
-                total_derivative(approximation, nonlinearity, sample + 1e-6) *
-                pdf(inbound, sample + 1e-6) *
-                logpdf(ExponentialFamily.KnownExponentialFamilyDistribution(ExponentialFamily.GammaShapeRate, η .+ 1e-6, nothing), nonlinearity(sample...)),
+                total_derivative(approximation, nonlinearity, sample) *
+                pdf(inbound, sample) *
+                logpdf(ExponentialFamily.KnownExponentialFamilyDistribution(ExponentialFamily.GammaShapeRate, η, nothing), nonlinearity(sample...)),
             samples
         )
         # (η) -> mean((sample) -> pdf(inbound, sample) * logpdf(ReactiveMP.as_naturalparams(T, η), nonlinearity(sample...)), samples)
     end
 
-    for _ in 1:(approximation.n_iterations)
-        # ∇logq = ReactiveMP.compute_gradient(approximation.grad, logq, ExponentialFamily.getnaturalparameters(exponentialfamily_current))
-         
-        # # compute Fisher matrix 
-        # Fisher = compute_fisher_matrix(approximation, ExponentialFamily.GammaShapeRate, ExponentialFamily.getnaturalparameters(exponentialfamily_current))
-        # # compute natural gradient
-        # ∇f = Fisher \ ∇logq
-        ∇f, _, _ = natural_gradient_step(approximation, exponentialfamily_current, logq)
+    η = ExponentialFamily.getnaturalparameters(exponentialfamily_current)
+    η1 = first(η)
+    η2 = getindex(η, 2)
 
-        check_λ = convert(ExponentialFamily.KnownExponentialFamilyDistribution, convert(Distribution, init_dist))
-        
-        @info ("inner loop", inbound, ExponentialFamily.getnaturalparameters(check_λ), samples, ∇f)
+    η_outbound = ReactiveMP.GammaNaturalParameters(ExponentialFamily.getnaturalparameters(exponentialfamily_outbound))
+
+    if any(isnan.(η))
+        error("Hello from isnan init")
+    end
+
+    for _ in 1:(approximation.n_iterations)
+        ∇logq = ReactiveMP.compute_gradient(approximation.grad, logq, ExponentialFamily.getnaturalparameters(exponentialfamily_current))
+         
+        # compute Fisher matrix 
+        Fisher = compute_fisher_matrix(approximation, ExponentialFamily.GammaShapeRate, ExponentialFamily.getnaturalparameters(exponentialfamily_current))
+        # compute natural gradient
+        ∇f = Fisher \ ∇logq
+        # @info ("inner loop", inbound, ExponentialFamily.getnaturalparameters(check_λ), samples, ∇f)
 
         # compute gradient on natural parameters
         ∇ = ExponentialFamily.getnaturalparameters(exponentialfamily_current) - ExponentialFamily.getnaturalparameters(exponentialfamily_outbound) - ∇f
         # perform gradient descent step
         λ_new = ReactiveMP.cvi_update!(approximation.opt, ExponentialFamily.getnaturalparameters(exponentialfamily_current), ∇)
-
-        exponetial_family_new = ExponentialFamily.KnownExponentialFamilyDistribution(ExponentialFamily.GammaShapeRate, λ_new, nothing)
-        exponentialfamily_message = ExponentialFamily.KnownExponentialFamilyDistribution(
-            ExponentialFamily.GammaShapeRate, λ_new - ExponentialFamily.getnaturalparameters(exponentialfamily_outbound), nothing
-        )
-
+        p_new = ReactiveMP.GammaNaturalParameters(λ_new)
         # check whether updated natural parameters are proper
-        if ExponentialFamily.isproper(exponetial_family_new) && ExponentialFamily.isproper(exponentialfamily_message)
-            exponentialfamily_current = exponetial_family_new
+        if isproper(p_new) && ReactiveMP.enforce_proper_message(approximation.enforce_proper_messages, p_new, η_outbound)
+            # @info "HERE!"
+            if any(isnan.(λ_new))
+                @info "NAN!"
+            end
+            exponentialfamily_current = ExponentialFamily.KnownExponentialFamilyDistribution(ExponentialFamily.GammaShapeRate, λ_new, nothing)
             hasupdated = true
         end
     end
@@ -128,5 +134,10 @@ function Base.prod(approximation::CVI, inbound, outbound::GammaDistributionsFami
     η = ExponentialFamily.getnaturalparameters(exponentialfamily_current)
     η1 = first(η)
     η2 = getindex(η, 2)
+
+    if any(isnan.(η))
+        return init_dist
+    end
+    
     return ReactiveMP.GammaShapeRate(η1 + one(η1), -η2)
 end
