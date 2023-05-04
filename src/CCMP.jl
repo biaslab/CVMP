@@ -65,6 +65,7 @@ end
 benchmark_timings = Ref(0.0)
 
 function compute_natural_gradient(approximation::CVI, logq, λ_current)
+    @info λ_current
     vec_params = vec(λ_current)
     ∇logq = ReactiveMP.compute_gradient(approximation.grad, logq, vec_params)
     Fisher = ReactiveMP.compute_fisher_matrix(approximation, typeof(λ_current), vec_params) # + 1e-6 * diageye(length(∇logq))
