@@ -72,14 +72,11 @@ function Base.prod(approximation::CVI, inbound, outbound::GammaDistributionsFami
     # the multiplication between two logpdfs is correct
     # we take the derivative with respect to `η`
     # `logpdf(outbound, sample)` does not depend on `η` and is just a simple scalar constant
-    
-    logq = let samples = samples, inbound = inbound
+    weights = map((sample) -> total_derivative(approximation, nonlinearity, sample) * pdf(inbound, sample), samples)
+    logq = let samples = samples, weights=weights
         (η) -> mean(
-            (sample) ->
-                total_derivative(approximation, nonlinearity, sample) *
-                pdf(inbound, sample) *
-                logpdf(ExponentialFamily.KnownExponentialFamilyDistribution(ExponentialFamily.GammaShapeRate, η, nothing), nonlinearity(sample...)),
-            samples
+            map((sample, weight) -> weight * logpdf(ExponentialFamily.KnownExponentialFamilyDistribution(ExponentialFamily.GammaShapeRate, η, nothing), nonlinearity(sample...)),
+            samples, weights)
         )
         # (η) -> mean((sample) -> pdf(inbound, sample) * logpdf(ReactiveMP.as_naturalparams(T, η), nonlinearity(sample...)), samples)
     end
