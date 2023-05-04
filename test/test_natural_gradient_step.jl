@@ -22,7 +22,9 @@ using StatsFuns
         (η) -> mean((sample) -> CCMP.total_derivative(cvi, nonlinearity, sample) * pdf(inbound, sample) * logpdf(ReactiveMP.as_naturalparams(T, η), nonlinearity(sample...)), samples)
     end
 
-    @info CCMP.compute_natural_gradient(cvi, logq, point)
+    ∇f, Fisher, ∇logq = CCMP.compute_natural_gradient(cvi, logq, point)
+    @info ∇f, Fisher, ∇logq
+    @test ∇f ≈ [-1094.407977220575, 19.87599727952676]
 end
 
 end
