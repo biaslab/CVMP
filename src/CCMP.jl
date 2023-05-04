@@ -103,13 +103,13 @@ function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinear
     weights = map((sample) -> total_derivative(approximation, nonlinearity, sample) * pdf(inbound, sample), samples)
     
     logq = let samples = samples, weights = weights, T = T
-        (η) -> mean((sample, weights) -> weights * logpdf(ReactiveMP.as_naturalparams(T, η), nonlinearity(sample...)), samples, weights)
+        (η) -> mean(map((sample, weight) -> weight * logpdf(ReactiveMP.as_naturalparams(T, η), nonlinearity(sample...)), samples, weights))
     end
 
     for _ in 1:(approximation.n_iterations)
         ∇logq = ReactiveMP.compute_gradient(approximation.grad, logq, vec(λ_current))
 
-        @info ∇logq
+        # @info ∇logq
         # @info ReactiveMP.compute_gradient(approximation.grad, logq, vec(λ_current))
 
         # compute Fisher matrix 
