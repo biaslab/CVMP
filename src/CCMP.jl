@@ -64,6 +64,14 @@ end
 
 benchmark_timings = Ref(0.0)
 
+function compute_natural_gradient(approximation::CVI, logq, λ_current)
+    vec_params = vec(λ_current)
+    ∇logq = ReactiveMP.compute_gradient(approximation.grad, logq, vec_params)
+    Fisher = ReactiveMP.compute_fisher_matrix(approximation, typeof(λ_current), vec_params) # + 1e-6 * diageye(length(∇logq))
+    ∇f = Fisher \ ∇logq
+    return ∇f, Fisher, ∇logq
+end
+
 function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinearity)
 
     benchmark_timings_start = time_ns()
@@ -107,14 +115,8 @@ function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinear
     end
 
     for _ in 1:(approximation.n_iterations)
-        ∇logq = ReactiveMP.compute_gradient(approximation.grad, logq, vec(λ_current))
-
-        # compute Fisher matrix 
-        Fisher = ReactiveMP.compute_fisher_matrix(approximation, T, vec(λ_current)) # + 1e-6 * diageye(length(∇logq))
-
-        # compute natural gradient
-        ∇f = Fisher \ ∇logq
-
+        ∇f, _, _ = compute_natural_gradient(approximation, logq, λ_current)
+        
         # compute gradient on natural parameters
         ∇ = λ_current - η_outbound - as_naturalparams(T, ∇f)
 
