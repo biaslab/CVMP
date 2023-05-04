@@ -17,7 +17,7 @@ function Random.rand(rng::AbstractRNG, factorizedjoint::ReactiveMP.FactorizedJoi
 end
 
 function Random.rand(rng::AbstractRNG, factorizedjoint::ReactiveMP.FactorizedJoint, size::Int64)
-    return ( rand(rng, factorizedjoint) for _ in 1:size )
+    return (rand(rng, factorizedjoint) for _ in 1:size)
 end
 
 function Random.rand(factorizedjoint::ReactiveMP.FactorizedJoint, size::Int64)
@@ -65,7 +65,6 @@ end
 benchmark_timings = Ref(0.0)
 
 function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinearity)
-
     benchmark_timings_start = time_ns()
 
     rng = something(approximation.rng, Random.default_rng())
@@ -101,13 +100,17 @@ function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinear
     # the multiplication between two logpdfs is correct
     # we take the derivative with respect to `η`
     # `logpdf(outbound, sample)` does not depend on `η` and is just a simple scalar constant
-    logq = let samples = samples, inbound = inbound, T = T
-        (η) -> mean((sample) -> total_derivative(approximation, nonlinearity, sample) * pdf(inbound, sample) * logpdf(ReactiveMP.as_naturalparams(T, η), nonlinearity(sample...)), samples)
-        # (η) -> mean((sample) -> pdf(inbound, sample) * logpdf(ReactiveMP.as_naturalparams(T, η), nonlinearity(sample...)), samples)
+    weights = map((sample) -> total_derivative(approximation, nonlinearity, sample) * pdf(inbound, sample), samples)
+    
+    logq = let samples = samples, weights = weights, T = T
+        (η) -> mean(map((sample, weight) -> weight * logpdf(ReactiveMP.as_naturalparams(T, η), nonlinearity(sample...)), samples, weights))
     end
 
     for _ in 1:(approximation.n_iterations)
         ∇logq = ReactiveMP.compute_gradient(approximation.grad, logq, vec(λ_current))
+
+        # @info ∇logq
+        # @info ReactiveMP.compute_gradient(approximation.grad, logq, vec(λ_current))
 
         # compute Fisher matrix 
         Fisher = ReactiveMP.compute_fisher_matrix(approximation, T, vec(λ_current)) # + 1e-6 * diageye(length(∇logq))
@@ -156,7 +159,7 @@ function proj(approximation::CVI, ::Type{T}, dist::ContinuousUnivariateLogPdf) w
     # @show mean, logmean
     # error(1)
     stats = Distributions.GammaStats(mean, logmean, 1)
-    return convert(GammaShapeRate, Distributions.fit_mle(Gamma, stats, tol=1e-4, maxiter=10, alpha0 = 10.0))
+    return convert(GammaShapeRate, Distributions.fit_mle(Gamma, stats, tol = 1e-4, maxiter = 10, alpha0 = 10.0))
 end
 
 end
