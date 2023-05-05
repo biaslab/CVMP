@@ -31,8 +31,8 @@ function Distributions.logpdf(exp_dist::ExponentialFamily.KnownExponentialFamily
 end
 
 function Base.prod(approximation::CVI, inbound, outbound::GammaDistributionsFamily, in_marginal, nonlinearity)
-    n_iterations = 1009
-    n_gradpoints = 30
+    n_iterations = 1000
+    n_gradpoints = 50
     opt = Flux.Descent(0.001)
 
     benchmark_timings_start = time_ns()
