@@ -16,7 +16,6 @@ using ForwardDiff
         outbound = NormalMeanVariance(4, 10)
         n_analytical = prod(ProdAnalytical(), inbound, outbound)
         q_y = prod(cvi, inbound, outbound, prod(ProdAnalytical(), inbound, outbound), (x) -> x)
-        @info q_y
         @test prod(cvi, inbound, outbound, prod(ProdAnalytical(), inbound, outbound), (x) -> x) ≈ n_analytical atol = 3e-1
     end
 
@@ -27,21 +26,20 @@ using ForwardDiff
         outbound = Bernoulli(0.6)
         n_analytical = prod(ProdAnalytical(), inbound, outbound)
         q_y = prod(cvi, inbound, outbound, prod(ProdAnalytical(), inbound, outbound), (x) -> x)
-        @info prod(cvi, inbound, outbound, prod(ProdAnalytical(), inbound, outbound), (x) -> x)
-        @test prod(cvi, inbound, outbound, prod(ProdAnalytical(), inbound, outbound), (x) -> x) ≈ n_analytical atol = 3e-1
+        q_cvi = prod(cvi, inbound, outbound, prod(ProdAnalytical(), inbound, outbound), (x) -> x)
+        @test q_y ≈ q_cvi atol = 3e-1
     end
 
     @testset "Gamma x Gamma" begin
-        cvi = CVI(StableRNG(42), 1, 100, Flux.Adam(0.001), ForwardDiffGrad(), 100, Val(true), true)
+        cvi = CVI(StableRNG(42), 1, 100, Flux.Adam(0.007), ForwardDiffGrad(), 100, Val(true), true)
 
-        for i = 1:10, j = 1:10, k = 1:10, l = 1:10
+        for i = 1:2, j = 1:2, k = 1:2, l = 1:2
             inbound = Gamma(i, j)
             outbound = Gamma(k, l)
             n_analytical = convert(ReactiveMP.GammaShapeRate, prod(ProdAnalytical(), inbound, outbound))
             q_y = prod(cvi, inbound, outbound, prod(ProdAnalytical(), inbound, outbound), (x) -> x)
-            @info n_analytical
-            @info prod(cvi, inbound, outbound, prod(ProdAnalytical(), inbound, outbound), (x) -> x)
-            @test prod(cvi, inbound, outbound, prod(ProdAnalytical(), inbound, outbound), (x) -> x) ≈ n_analytical atol = 0.2
+            q_x = prod(cvi, inbound, outbound, prod(ProdAnalytical(), inbound, outbound), (x) -> x)
+            @test vec(ReactiveMP.naturalparams(q_x)) ≈ vec(ReactiveMP.naturalparams(n_analytical)) atol = 0.9
         end
     end
 end

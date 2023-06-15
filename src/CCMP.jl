@@ -54,7 +54,7 @@ end
 function total_derivative(approximation, f, s::Real)
     # bvdmitri: Why not multiple on `s` here?
     # error(1)
-    return ReactiveMP.compute_derivative(approximation.grad, f, s)
+    return s*ReactiveMP.compute_derivative(approximation.grad, f, s)
 end
 
 function total_derivative(approximation, f, s::Tuple)
@@ -78,6 +78,7 @@ function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinear
 
     # Initial parameters of projected distribution
     init_dist = ccmp_init(approximation, inbound, outbound, nonlinearity)
+
     λ_current = naturalparams(init_dist)
 
     if !isproper(λ_current)
@@ -91,16 +92,13 @@ function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinear
 
     hasupdated = false
 
-    # @info "total derivative included"
-    # @info "total derivative excluded"
-    # error(1)
-
     samples = ReactiveMP.cvilinearize(rand(rng, in_marginal_friendly, approximation.n_gradpoints))
 
     # compute gradient of log-likelihood
     # the multiplication between two logpdfs is correct
     # we take the derivative with respect to `η`
     # `logpdf(outbound, sample)` does not depend on `η` and is just a simple scalar constant
+
     logq = let samples = samples, inbound = inbound, T = T
         (η) -> mean(
             (sample) -> total_derivative(approximation, nonlinearity, sample) * pdf(inbound, sample) * logpdf(ReactiveMP.as_naturalparams(T, η), nonlinearity(sample...)),
@@ -124,16 +122,9 @@ function Base.prod(approximation::CVI, inbound, outbound, in_marginal, nonlinear
         # perform gradient descent step
         λ_new = as_naturalparams(T, ReactiveMP.cvi_update!(approximation.opt, λ_current, ∇))
 
-        if any(isnan.(λ_new))
-            @info "NAN!"
-        end
-
         # check whether updated natural parameters are proper
         if isproper(λ_new) && ReactiveMP.enforce_proper_message(approximation.enforce_proper_messages, λ_new, η_outbound)
-            @info "HERE!"
-            if any(isnan.(λ_new))
-                @info "NAN!"
-            end
+            # @assert any(isnan.(vec(λ_new))) == false
             λ_current = λ_new
             hasupdated = true
         end
@@ -158,7 +149,7 @@ function proj(_, dist::GammaDistributionsFamily, exp_dist::GammaDistributionsFam
     return dist
 end
 
-function proj(approximation::CVI, ::Type{T}, dist::ContinuousUnivariateLogPdf) where {T}
+function proj(_::CVI, ::Type{T}, dist::ContinuousUnivariateLogPdf) where {T}
     # projected_params = ReactiveMP.naturalparams(ReactiveMP.prod(approximation, dist, exp_dist)) - naturalparams(exp_dist)
     # return convert(Distribution, projected_params)
     C = ReactiveMP.approximate(GaussLaguerreQuadrature(21), (x) -> pdf(dist, x))

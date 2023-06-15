@@ -101,7 +101,6 @@ function Base.prod(approximation::CVI, inbound, outbound::GammaDistributionsFami
         p_new = ReactiveMP.GammaNaturalParameters(λ_new)
         # check whether updated natural parameters are proper
         if isproper(p_new) && ReactiveMP.enforce_proper_message(approximation.enforce_proper_messages, p_new, η_outbound)
-            # @info "HERE!"
             if any(isnan.(λ_new))
                 error("Hello from isnan update")
             end
