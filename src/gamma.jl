@@ -67,10 +67,14 @@ function Base.prod(approximation::CVI, inbound, outbound::GammaDistributionsFami
     # we take the derivative with respect to `η`
     # `logpdf(outbound, sample)` does not depend on `η` and is just a simple scalar constant
     weights = map((sample) -> total_derivative(approximation, nonlinearity, sample) * pdf(inbound, sample), samples)
-    logq = let samples = samples, weights=weights
+    logq = let samples = samples, weights = weights
         (η) -> mean(
-            map((sample, weight) -> weight * logpdf(ExponentialFamily.KnownExponentialFamilyDistribution(ExponentialFamily.GammaShapeRate, η, nothing), nonlinearity(sample...)),
-            samples, weights)
+            map(
+                (sample, weight) ->
+                    weight * logpdf(ExponentialFamily.KnownExponentialFamilyDistribution(ExponentialFamily.GammaShapeRate, η, nothing), nonlinearity(sample...)),
+                samples,
+                weights
+            )
         )
         # (η) -> mean((sample) -> pdf(inbound, sample) * logpdf(ReactiveMP.as_naturalparams(T, η), nonlinearity(sample...)), samples)
     end
@@ -87,7 +91,7 @@ function Base.prod(approximation::CVI, inbound, outbound::GammaDistributionsFami
 
     for _ in 1:(n_iterations)
         ∇logq = ReactiveMP.compute_gradient(approximation.grad, logq, ExponentialFamily.getnaturalparameters(exponentialfamily_current))
-         
+
         # compute Fisher matrix 
         Fisher = compute_fisher_matrix(approximation, ExponentialFamily.GammaShapeRate, ExponentialFamily.getnaturalparameters(exponentialfamily_current))
         # compute natural gradient
@@ -128,7 +132,7 @@ function Base.prod(approximation::CVI, inbound, outbound::GammaDistributionsFami
     if any(isnan.(η))
         return init_dist
     end
-    
+
     return ReactiveMP.GammaShapeRate(η1 + one(η1), -η2)
 end
 

@@ -54,7 +54,7 @@ end
 function total_derivative(approximation, f, s::Real)
     # bvdmitri: Why not multiple on `s` here?
     # error(1)
-    return s*ReactiveMP.compute_derivative(approximation.grad, f, s)
+    return s * ReactiveMP.compute_derivative(approximation.grad, f, s)
 end
 
 function total_derivative(approximation, f, s::Tuple)

@@ -33,7 +33,7 @@ using ForwardDiff
     @testset "Gamma x Gamma" begin
         cvi = CVI(StableRNG(42), 1, 100, Flux.Adam(0.007), ForwardDiffGrad(), 100, Val(true), true)
 
-        for i = 1:2, j = 1:2, k = 1:2, l = 1:2
+        for i in 1:2, j in 1:2, k in 1:2, l in 1:2
             inbound = Gamma(i, j)
             outbound = Gamma(k, l)
             n_analytical = convert(ReactiveMP.GammaShapeRate, prod(ProdAnalytical(), inbound, outbound))
