@@ -9,3 +9,8 @@ Variational message passing is an efficient Bayesian inference method in factori
 ---
 This repository contains all experiments of the paper.
 
+**Disclaimer**
+
+For the moment, paper denepds on private package `ExponentialFamily` which is not yet open-sourced. We will open-source it soon.
+You can obtain the package by contacting the authors.
+
