@@ -7,7 +7,15 @@ Variational message passing is an efficient Bayesian inference method in factori
 
 
 ---
-This repository contains all experiments of the paper.
+This repository contains the Sunspot experiment from the paper. The experiment is implemented in Julia using the RxInfer package.
+
+In this repository there are 3 notebooks:
+
+- `sunspot_cvmp.ipynb`: contains the experiment with the proposed method
+- `sunspot_nuts.ipynb`: contains the experiment with the NUTS sampler (implemented in Turing.jl)
+- `sunspot_svmp.ipynb`: contains the experiment with the SVMP method (implemented in RxInfer.jl)
+
+The paper also use results of AIS-MP algorithm on the same dataset for the comparison, which is not presented in this repo and implemeted in the ForneyLab package [here](https://github.com/biaslab/AIS-MP/pull/1).
 
 **Disclaimer**
 

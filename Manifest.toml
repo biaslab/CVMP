@@ -576,9 +576,7 @@ version = "2.4.8+0"
 
 [[deps.ExponentialFamily]]
 deps = ["Distributions", "DomainSets", "ForwardDiff", "HCubature", "HypergeometricFunctions", "JuliaFormatter", "LinearAlgebra", "LoopVectorization", "PositiveFactorizations", "Random", "SpecialFunctions", "StableRNGs", "StaticArrays", "StatsBase", "StatsFuns", "Test", "TinyHugeNumbers"]
-git-tree-sha1 = "1494047d0bf602ba26350a6302e72dca06b697fc"
-repo-rev = "main"
-repo-url = "/Users/mykola/repos/ExponentialFamily.jl"
+path = "/Users/mykola/.julia/dev/ExponentialFamily"
 uuid = "62312e5e-252a-4322-ace9-a5f4bf9b357b"
 version = "0.1.0"
 
