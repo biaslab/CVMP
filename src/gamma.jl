@@ -57,10 +57,6 @@ function Base.prod(approximation::CVI, inbound, outbound::GammaDistributionsFami
 
     hasupdated = false
 
-    # @info "total derivative included"
-    # @info "total derivative excluded"
-    # error(1)
-
     samples = ReactiveMP.cvilinearize(rand(rng, in_marginal_friendly, n_gradpoints))
     # compute gradient of log-likelihood
     # the multiplication between two logpdfs is correct
@@ -76,7 +72,6 @@ function Base.prod(approximation::CVI, inbound, outbound::GammaDistributionsFami
                 weights
             )
         )
-        # (η) -> mean((sample) -> pdf(inbound, sample) * logpdf(ReactiveMP.as_naturalparams(T, η), nonlinearity(sample...)), samples)
     end
 
     η = ExponentialFamily.getnaturalparameters(exponentialfamily_current)
@@ -96,7 +91,6 @@ function Base.prod(approximation::CVI, inbound, outbound::GammaDistributionsFami
         Fisher = compute_fisher_matrix(approximation, ExponentialFamily.GammaShapeRate, ExponentialFamily.getnaturalparameters(exponentialfamily_current))
         # compute natural gradient
         ∇f = Fisher \ ∇logq
-        # @info ("inner loop", inbound, ExponentialFamily.getnaturalparameters(check_λ), samples, ∇f)
 
         # compute gradient on natural parameters
         ∇ = ExponentialFamily.getnaturalparameters(exponentialfamily_current) - ExponentialFamily.getnaturalparameters(exponentialfamily_outbound) - ∇f
@@ -112,10 +106,6 @@ function Base.prod(approximation::CVI, inbound, outbound::GammaDistributionsFami
             hasupdated = true
         end
     end
-
-    # if !hasupdated
-    # error("Hello from not updated")
-    # end
 
     if !hasupdated && approximation.warn
         @warn "CVI approximation has not updated the initial state. The method did not converge. Set `warn = false` to supress this warning."
@@ -136,11 +126,3 @@ function Base.prod(approximation::CVI, inbound, outbound::GammaDistributionsFami
     return ReactiveMP.GammaShapeRate(η1 + one(η1), -η2)
 end
 
-function natural_gradient_step(approximation::CVI, exp_dist::ExponentialFamily.KnownExponentialFamilyDistribution{ExponentialFamily.GammaShapeRate}, logq)
-    ∇logq = ReactiveMP.compute_gradient(approximation.grad, logq, ExponentialFamily.getnaturalparameters(exp_dist))
-    # compute Fisher matrix 
-    Fisher = compute_fisher_matrix(approximation, ExponentialFamily.GammaShapeRate, ExponentialFamily.getnaturalparameters(exp_dist))
-    # compute natural gradient
-    ∇f = Fisher \ ∇logq
-    return (∇f, Fisher, ∇logq)
-end

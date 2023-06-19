@@ -192,7 +192,7 @@ else
     end
 end
 
-@testset ExtendedTestSet "ReactiveMP" begin
+@testset ExtendedTestSet "CVMP" begin
     @testset "Testset helpers" begin
         @test key_to_filename(filename_to_key("distributions/test_normal_mean_variance.jl")) == "distributions/test_normal_mean_variance.jl"
         @test filename_to_key(key_to_filename("distributions:normal_mean_variance")) == "distributions:normal_mean_variance"
@@ -201,6 +201,7 @@ end
     end
 
     addtests(testrunner, "test_ccmp.jl")
+    addtests(testrunner, "test_sample_factorized_joint.jl")
 
     run(testrunner)
 end

@@ -12,6 +12,6 @@ using Random
 @testset "rand factorized joint" begin
     fc = ReactiveMP.FactorizedJoint((PointMass(2), PointMass(3)))
     @test rand(fc) == (2, 3)
-    @test rand(fc, 2) == [(2, 3), (2, 3)]
+    @test [rand(fc, 2)...] == [(2, 3), (2, 3)]
 end
 end
