@@ -89,7 +89,7 @@ function Base.prod(approximation::CVI, inbound, outbound::GammaDistributionsFami
         error("Hello from isnan init")
     end
 
-    for _ in 1:100
+    for _ in 1:n_iterations
         ∇logq = ReactiveMP.compute_gradient(approximation.grad, logq, ExponentialFamily.getnaturalparameters(exponentialfamily_current))
 
         if any(isnan.(ExponentialFamily.getnaturalparameters(exponentialfamily_current)))
