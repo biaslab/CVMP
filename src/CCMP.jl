@@ -52,8 +52,6 @@ function ccmp_init(_, inbound::Tuple, outbound::GaussianDistributionsFamily, non
 end
 
 function total_derivative(approximation, f, s::Real)
-    # bvdmitri: Why not multiple on `s` here?
-    # error(1)
     return s * ReactiveMP.compute_derivative(approximation.grad, f, s)
 end
 

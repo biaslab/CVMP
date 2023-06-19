@@ -6,11 +6,6 @@ function ReactiveMP.cvi_update!(opt::Flux.Optimise.AbstractOptimiser, λ::Abstra
     return Flux.Optimise.update!(opt, λ, ∇)
 end
 
-function compute_fisher_matrix(approximation::CVI, ::Type{ExponentialFamily.GammaShapeRate}, vec::AbstractVector)
-    neg_lognormalizer = (x) -> ExponentialFamily.logpartition(ExponentialFamily.KnownExponentialFamilyDistribution(ExponentialFamily.GammaShapeRate, x, nothing))
-    return ReactiveMP.compute_hessian(approximation.grad, neg_lognormalizer, vec)
-end
-
 function Base.convert(::Type{ExponentialFamily.KnownExponentialFamilyDistribution}, dist::Distributions.Gamma)
     return ExponentialFamily.KnownExponentialFamilyDistribution(ExponentialFamily.GammaShapeRate, [shape(dist) - one(Float64), -rate(dist)])
 end
@@ -30,10 +25,20 @@ function Distributions.logpdf(exp_dist::ExponentialFamily.KnownExponentialFamily
     return log(x) * η1 + x * η2 - ExponentialFamily.logpartition(exp_dist)
 end
 
+function ExponentialFamily.check_valid_natural(::Type{GammaShapeRate}, v::Vector{Float64})
+    if length(v) == 2
+        return true
+    end
+    return false
+end 
+
 function Base.prod(approximation::CVI, inbound, outbound::GammaDistributionsFamily, in_marginal, nonlinearity)
+
+    @info "called here"
+
     n_iterations = 1000
     n_gradpoints = 50
-    opt = Flux.Descent(0.001)
+    opt = Flux.Adam(0.001)
 
     benchmark_timings_start = time_ns()
 
@@ -78,30 +83,34 @@ function Base.prod(approximation::CVI, inbound, outbound::GammaDistributionsFami
     η1 = first(η)
     η2 = getindex(η, 2)
 
-    η_outbound = ReactiveMP.GammaNaturalParameters(ExponentialFamily.getnaturalparameters(exponentialfamily_outbound))
+    η_outbound_params = ExponentialFamily.getnaturalparameters(exponentialfamily_outbound)
 
     if any(isnan.(η))
         error("Hello from isnan init")
     end
 
-    for _ in 1:(n_iterations)
+    for _ in 1:100
         ∇logq = ReactiveMP.compute_gradient(approximation.grad, logq, ExponentialFamily.getnaturalparameters(exponentialfamily_current))
 
+        if any(isnan.(ExponentialFamily.getnaturalparameters(exponentialfamily_current)))
+            return init_dist
+        end
+
         # compute Fisher matrix 
-        Fisher = compute_fisher_matrix(approximation, ExponentialFamily.GammaShapeRate, ExponentialFamily.getnaturalparameters(exponentialfamily_current))
-        # compute natural gradient
+        Fisher = ExponentialFamily.fisherinformation(exponentialfamily_current)
+
         ∇f = Fisher \ ∇logq
 
         # compute gradient on natural parameters
         ∇ = ExponentialFamily.getnaturalparameters(exponentialfamily_current) - ExponentialFamily.getnaturalparameters(exponentialfamily_outbound) - ∇f
+        
         # perform gradient descent step
         λ_new = ReactiveMP.cvi_update!(opt, ExponentialFamily.getnaturalparameters(exponentialfamily_current), ∇)
-        p_new = ReactiveMP.GammaNaturalParameters(λ_new)
+        p_new = ExponentialFamily.KnownExponentialFamilyDistribution(ExponentialFamily.GammaShapeRate, λ_new)
+        message_new = ExponentialFamily.KnownExponentialFamilyDistribution(ExponentialFamily.GammaShapeRate, λ_new - η_outbound_params)
+        
         # check whether updated natural parameters are proper
-        if isproper(p_new) && ReactiveMP.enforce_proper_message(approximation.enforce_proper_messages, p_new, η_outbound)
-            if any(isnan.(λ_new))
-                error("Hello from isnan update")
-            end
+        if ExponentialFamily.isproper(p_new) && ExponentialFamily.isproper(message_new)
             exponentialfamily_current = ExponentialFamily.KnownExponentialFamilyDistribution(ExponentialFamily.GammaShapeRate, λ_new, nothing)
             hasupdated = true
         end
