@@ -2,3 +2,6 @@ name = "graphs"
 uuid = "b3f9477f-5966-4c90-af78-b58b342e8110"
 authors = ["Mykola Lukashchuk <nikola.lukashuk@gmail.com> <nikola.lukashuk@gmail.com>"]
 version = "0.1.0"
+
+[deps]
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
