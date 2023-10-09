@@ -16,9 +16,3 @@ In this repository there are 3 notebooks:
 - `sunspot_svmp.ipynb`: contains the experiment with the SVMP method (implemented in RxInfer.jl)
 
 The paper also use results of AIS-MP algorithm on the same dataset for the comparison, which is not presented in this repo and implemeted in the ForneyLab package [here](https://github.com/biaslab/AIS-MP/blob/correcting-free-energy/demos/GammaStateSpace%20AIS-MP.ipynb).
-
-**Disclaimer**
-
-For the moment, paper denepds on private package `ExponentialFamily` which is not yet open-sourced. We will open-source it soon.
-You can obtain the package by contacting the authors.
-
